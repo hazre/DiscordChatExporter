@@ -12,6 +12,7 @@ using DiscordChatExporter.Core.Exceptions;
 using DiscordChatExporter.Core.Exporting;
 using DiscordChatExporter.Core.Native.Contracts;
 using DiscordChatExporter.Core.Utils.Extensions;
+using Gress;
 
 namespace DiscordChatExporter.Core.Native.Runtime;
 
@@ -19,6 +20,9 @@ public static class NativeExportService
 {
     public static async ValueTask<NativeExportSummary> ExportAsync(
         NativeExecutionRequest request,
+        Action<double, string?, string?>? onProgress = null,
+        Action<NativeExportIssue>? onWarning = null,
+        Action<NativeExportIssue>? onError = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -35,6 +39,36 @@ public static class NativeExportService
         channels = await IncludeThreadsAsync(discord, channels, request, cancellationToken);
 
         ValidateOutputPath(channels, request.OutputPath);
+
+        var channelsById = new Dictionary<Snowflake, Channel>();
+        foreach (var channel in channels)
+            channelsById[channel.Id] = channel;
+        var channelProgressById = channelsById.Keys.ToDictionary(channelId => channelId, _ => 0d);
+        var progressSyncRoot = new object();
+
+        void ReportChannelProgress(Snowflake channelId, double fraction)
+        {
+            if (channelProgressById.Count <= 0)
+            {
+                onProgress?.Invoke(1, null, null);
+                return;
+            }
+
+            double overallFraction;
+            lock (progressSyncRoot)
+            {
+                var clamped = Math.Clamp(fraction, 0, 1);
+                channelProgressById[channelId] = Math.Max(channelProgressById[channelId], clamped);
+                overallFraction = channelProgressById.Values.Sum() / channelProgressById.Count;
+            }
+
+            var channel = channelsById[channelId];
+            onProgress?.Invoke(
+                overallFraction,
+                channel.Id.ToString(),
+                channel.GetHierarchicalName()
+            );
+        }
 
         var errorsByChannel = new ConcurrentDictionary<Channel, string>();
         var warningsByChannel = new ConcurrentDictionary<Channel, string>();
@@ -71,18 +105,44 @@ public static class NativeExportService
                         request.Utc
                     );
 
-                    await exporter.ExportChannelAsync(exportRequest, null, innerCancellationToken);
+                    var channelProgress = new Progress<Percentage>(p =>
+                        ReportChannelProgress(channel.Id, p.Fraction)
+                    );
+
+                    await exporter.ExportChannelAsync(
+                        exportRequest,
+                        channelProgress,
+                        innerCancellationToken
+                    );
+
+                    ReportChannelProgress(channel.Id, 1);
                 }
                 catch (ChannelEmptyException ex)
                 {
                     warningsByChannel[channel] = ex.Message;
+                    var warning = new NativeExportIssue(
+                        channel.Id.ToString(),
+                        channel.GetHierarchicalName(),
+                        ex.Message
+                    );
+                    onWarning?.Invoke(warning);
+                    ReportChannelProgress(channel.Id, 1);
                 }
                 catch (DiscordChatExporterException ex) when (!ex.IsFatal)
                 {
                     errorsByChannel[channel] = ex.Message;
+                    var error = new NativeExportIssue(
+                        channel.Id.ToString(),
+                        channel.GetHierarchicalName(),
+                        ex.Message
+                    );
+                    onError?.Invoke(error);
+                    ReportChannelProgress(channel.Id, 1);
                 }
             }
         );
+
+        onProgress?.Invoke(1, null, null);
 
         if (errorsByChannel.Count >= channels.Count)
             throw new DiscordChatExporterException("Export failed.");

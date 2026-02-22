@@ -21,12 +21,26 @@ Output path:
 ## Exported Functions
 
 - `dce_export_json(const char* request_json)` -> `const char* response_json`
+- `dce_export_start_json(const char* request_json, uint64_t* out_handle)` -> `int32 status`
+- `dce_export_set_progress_callback(uint64_t handle, void* callback_fn, void* user_data)` -> `int32 status`
+- `dce_export_cancel(uint64_t handle)` -> `int32 status`
+- `dce_export_get_state_json(uint64_t handle)` -> `const char* state_json`
+- `dce_export_await_result_json(uint64_t handle)` -> `const char* result_json`
+- `dce_export_release(uint64_t handle)` -> `int32 status`
 - `dce_get_guilds_json(const char* request_json)` -> `const char* response_json`
 - `dce_get_channels_json(const char* request_json)` -> `const char* response_json`
 - `dce_free(void* ptr)` -> `void`
 - `dce_get_version(void)` -> `const char* version`
 
 All returned pointers must be released with `dce_free`.
+
+Status codes:
+
+- `0`: success
+- `1`: invalid argument
+- `2`: handle not found
+- `3`: invalid state
+- `4`: internal error
 
 ## JSON Request Shape
 
@@ -75,4 +89,14 @@ Operation-specific fields:
 
 ## Bun FFI
 
-See `DiscordChatExporter.Core.Native/examples/bun-smoke.ts` for a runnable example.
+Examples:
+
+- Blocking/discovery API: `DiscordChatExporter.Core.Native/examples/bun-smoke.ts`
+- Async callback API: `DiscordChatExporter.Core.Native/examples/bun-async-export.ts`
+
+Async callback notes:
+
+- Register callback using `JSCallback(..., { threadsafe: true })`.
+- Callback signature receives `(handle, eventJsonPtr, userData)`.
+- Event JSON pointer is heap-owned by the native library and must be released by calling `dce_free(eventJsonPtr)` after decoding.
+- `dce_export_get_state_json` and `dce_export_await_result_json` pointers must be freed via `dce_free`.

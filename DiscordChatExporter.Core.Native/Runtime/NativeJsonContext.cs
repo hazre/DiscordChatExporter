@@ -14,4 +14,6 @@ namespace DiscordChatExporter.Core.Native.Runtime;
 [JsonSerializable(typeof(NativeErrorResponse))]
 [JsonSerializable(typeof(NativeGuildsResponse))]
 [JsonSerializable(typeof(NativeChannelsResponse))]
+[JsonSerializable(typeof(NativeJobStateResponse))]
+[JsonSerializable(typeof(NativeJobEvent))]
 internal partial class NativeJsonContext : JsonSerializerContext;

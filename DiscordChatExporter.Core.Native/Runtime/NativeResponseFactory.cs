@@ -7,6 +7,14 @@ namespace DiscordChatExporter.Core.Native.Runtime;
 
 public static class NativeResponseFactory
 {
+    public static NativeErrorResponse CanceledError() =>
+        new()
+        {
+            Code = "Canceled",
+            Message = "Export canceled.",
+            IsFatal = false,
+        };
+
     public static string FromSummary(NativeExportSummary summary)
     {
         var response = new NativeSuccessResponse
@@ -44,8 +52,32 @@ public static class NativeResponseFactory
 
     public static string FromException(Exception ex)
     {
-        var error = ex switch
+        var error = ToErrorResponse(ex);
+        return FromError(error);
+    }
+
+    public static string FromError(NativeErrorResponse error) =>
+        System.Text.Json.JsonSerializer.Serialize(
+            error,
+            NativeJsonContext.Default.NativeErrorResponse
+        );
+
+    public static string FromJobState(NativeJobStateResponse state) =>
+        System.Text.Json.JsonSerializer.Serialize(
+            state,
+            NativeJsonContext.Default.NativeJobStateResponse
+        );
+
+    public static string FromJobEvent(NativeJobEvent jobEvent) =>
+        System.Text.Json.JsonSerializer.Serialize(
+            jobEvent,
+            NativeJsonContext.Default.NativeJobEvent
+        );
+
+    public static NativeErrorResponse ToErrorResponse(Exception ex) =>
+        ex switch
         {
+            OperationCanceledException => CanceledError(),
             NativeRequestValidationException validation => new NativeErrorResponse
             {
                 Code = "InvalidRequest",
@@ -72,12 +104,6 @@ public static class NativeResponseFactory
                 IsFatal = true,
             },
         };
-
-        return System.Text.Json.JsonSerializer.Serialize(
-            error,
-            NativeJsonContext.Default.NativeErrorResponse
-        );
-    }
 
     private static bool IsAuthError(DiscordChatExporterException ex) =>
         ex.IsFatal
