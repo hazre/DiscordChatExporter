@@ -5,6 +5,7 @@
 - Getting started:
   - [Using the GUI](Using-the-GUI.md)
   - [Using the CLI](Using-the-CLI.md)
+  - [Using Core Native C FFI](../DiscordChatExporter.Core.Native/Readme.md)
   - [File formats](Getting-started.md#file-formats)
 
 ## Guides
