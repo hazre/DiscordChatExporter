@@ -6,7 +6,7 @@ using DiscordChatExporter.Core.Native.Interop;
 
 namespace DiscordChatExporter.Core.Native.Runtime;
 
-public sealed class NativeExportJob(ulong handle, NativeExecutionRequest request)
+public sealed class NativeExportJob(ulong handle, NativeJobKind jobKind)
 {
     private readonly object _syncRoot = new();
     private readonly object _emitSyncRoot = new();
@@ -19,7 +19,7 @@ public sealed class NativeExportJob(ulong handle, NativeExecutionRequest request
 
     public ulong Handle { get; } = handle;
 
-    public NativeExecutionRequest Request { get; } = request;
+    public NativeJobKind JobKind { get; } = jobKind;
 
     public CancellationTokenSource CancellationTokenSource { get; } = new();
 
@@ -77,6 +77,7 @@ public sealed class NativeExportJob(ulong handle, NativeExecutionRequest request
             {
                 Type = "status",
                 Handle = Handle,
+                JobKind = JobKind.ToString(),
                 State = "running",
                 Timestamp = DateTimeOffset.UtcNow.ToString("O"),
             }
@@ -101,6 +102,7 @@ public sealed class NativeExportJob(ulong handle, NativeExecutionRequest request
             {
                 Type = "progress",
                 Handle = Handle,
+                JobKind = JobKind.ToString(),
                 State = "running",
                 Fraction = reportedFraction,
                 ChannelId = channelId,
@@ -123,6 +125,7 @@ public sealed class NativeExportJob(ulong handle, NativeExecutionRequest request
             {
                 Type = "warning",
                 Handle = Handle,
+                JobKind = JobKind.ToString(),
                 State = "running",
                 Message = issue.Message,
                 ChannelId = issue.ChannelId,
@@ -145,6 +148,7 @@ public sealed class NativeExportJob(ulong handle, NativeExecutionRequest request
             {
                 Type = "error",
                 Handle = Handle,
+                JobKind = JobKind.ToString(),
                 State = "running",
                 Message = issue.Message,
                 ChannelId = issue.ChannelId,
@@ -182,6 +186,7 @@ public sealed class NativeExportJob(ulong handle, NativeExecutionRequest request
             {
                 Type = "complete",
                 Handle = Handle,
+                JobKind = JobKind.ToString(),
                 State = "succeeded",
                 Fraction = 1,
                 Summary = new NativeSuccessResponse
@@ -192,6 +197,33 @@ public sealed class NativeExportJob(ulong handle, NativeExecutionRequest request
                     Warnings = summary.Warnings,
                     Errors = summary.Errors,
                 },
+                Timestamp = DateTimeOffset.UtcNow.ToString("O"),
+            }
+        );
+    }
+
+    public void CompleteWithResult(string resultJson, int? itemCount = null)
+    {
+        lock (_syncRoot)
+        {
+            if (IsTerminal)
+                return;
+
+            State = NativeJobState.Succeeded;
+            Fraction = 1;
+        }
+
+        _completionSource.TrySetResult(resultJson);
+
+        EmitEvent(
+            new NativeJobEvent
+            {
+                Type = "complete",
+                Handle = Handle,
+                JobKind = JobKind.ToString(),
+                State = "succeeded",
+                Fraction = 1,
+                ItemCount = itemCount,
                 Timestamp = DateTimeOffset.UtcNow.ToString("O"),
             }
         );
@@ -219,6 +251,7 @@ public sealed class NativeExportJob(ulong handle, NativeExecutionRequest request
             {
                 Type = "complete",
                 Handle = Handle,
+                JobKind = JobKind.ToString(),
                 State = terminalState.ToString().ToLowerInvariant(),
                 Error = error,
                 Timestamp = DateTimeOffset.UtcNow.ToString("O"),
@@ -233,6 +266,7 @@ public sealed class NativeExportJob(ulong handle, NativeExecutionRequest request
             return new NativeJobStateResponse
             {
                 Handle = Handle,
+                JobKind = JobKind.ToString(),
                 State = State.ToString().ToLowerInvariant(),
                 IsTerminal = IsTerminal,
                 CancelRequested = CancelRequested,

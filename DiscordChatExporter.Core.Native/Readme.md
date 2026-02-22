@@ -20,15 +20,20 @@ Output path:
 
 ## Exported Functions
 
-- `dce_export_json(const char* request_json)` -> `const char* response_json`
+- `dce_export_json(const char* request_json)` -> `const char* response_json` (blocking convenience wrapper)
 - `dce_export_start_json(const char* request_json, uint64_t* out_handle)` -> `int32 status`
-- `dce_export_set_progress_callback(uint64_t handle, void* callback_fn, void* user_data)` -> `int32 status`
-- `dce_export_cancel(uint64_t handle)` -> `int32 status`
-- `dce_export_get_state_json(uint64_t handle)` -> `const char* state_json`
-- `dce_export_await_result_json(uint64_t handle)` -> `const char* result_json`
-- `dce_export_release(uint64_t handle)` -> `int32 status`
-- `dce_get_guilds_json(const char* request_json)` -> `const char* response_json`
-- `dce_get_channels_json(const char* request_json)` -> `const char* response_json`
+- `dce_get_guilds_start_json(const char* request_json, uint64_t* out_handle)` -> `int32 status`
+- `dce_get_channels_start_json(const char* request_json, uint64_t* out_handle)` -> `int32 status`
+- `dce_job_set_callback(uint64_t handle, void* callback_fn, void* user_data)` -> `int32 status`
+- `dce_job_cancel(uint64_t handle)` -> `int32 status`
+- `dce_job_get_state_json(uint64_t handle)` -> `const char* state_json`
+- `dce_job_await_result_json(uint64_t handle)` -> `const char* result_json`
+- `dce_job_release(uint64_t handle)` -> `int32 status`
+- `dce_export_set_progress_callback(uint64_t handle, void* callback_fn, void* user_data)` -> `int32 status` (alias to `dce_job_set_callback`)
+- `dce_export_cancel(uint64_t handle)` -> `int32 status` (alias to `dce_job_cancel`)
+- `dce_export_get_state_json(uint64_t handle)` -> `const char* state_json` (alias to `dce_job_get_state_json`)
+- `dce_export_await_result_json(uint64_t handle)` -> `const char* result_json` (alias to `dce_job_await_result_json`)
+- `dce_export_release(uint64_t handle)` -> `int32 status` (alias to `dce_job_release`)
 - `dce_free(void* ptr)` -> `void`
 - `dce_get_version(void)` -> `const char* version`
 
@@ -74,12 +79,12 @@ Operation-specific fields:
 
 ## Discovery Request Shapes
 
-`dce_get_guilds_json`:
+`dce_get_guilds_start_json`:
 
 - `token` (`string`, required)
 - `respectRateLimits` (`bool`, default `true`)
 
-`dce_get_channels_json`:
+`dce_get_channels_start_json`:
 
 - `token` (`string`, required)
 - `respectRateLimits` (`bool`, default `true`)
@@ -91,12 +96,13 @@ Operation-specific fields:
 
 Examples:
 
-- Blocking/discovery API: `DiscordChatExporter.Core.Native/examples/bun-smoke.ts`
-- Async callback API: `DiscordChatExporter.Core.Native/examples/bun-async-export.ts`
+- Mixed smoke test (blocking export + async discovery): `DiscordChatExporter.Core.Native/examples/bun-smoke.ts`
+- Async export callback API: `DiscordChatExporter.Core.Native/examples/bun-async-export.ts`
+- Async discovery callback API: `DiscordChatExporter.Core.Native/examples/bun-async-discovery.ts`
 
 Async callback notes:
 
 - Register callback using `JSCallback(..., { threadsafe: true })`.
 - Callback signature receives `(handle, eventJsonPtr, userData)`.
 - Event JSON pointer is heap-owned by the native library and must be released by calling `dce_free(eventJsonPtr)` after decoding.
-- `dce_export_get_state_json` and `dce_export_await_result_json` pointers must be freed via `dce_free`.
+- `dce_job_get_state_json` and `dce_job_await_result_json` pointers must be freed via `dce_free`.

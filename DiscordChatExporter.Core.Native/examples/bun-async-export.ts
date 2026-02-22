@@ -36,19 +36,19 @@ const libPath = join(
 const {
   symbols: {
     dce_export_start_json,
-    dce_export_set_progress_callback,
-    dce_export_get_state_json,
-    dce_export_await_result_json,
-    dce_export_release,
+    dce_job_set_callback,
+    dce_job_get_state_json,
+    dce_job_await_result_json,
+    dce_job_release,
     dce_free,
   },
   close,
 } = dlopen(libPath, {
   dce_export_start_json: { args: ["cstring", "ptr"], returns: "i32" },
-  dce_export_set_progress_callback: { args: ["u64", "function", "ptr"], returns: "i32" },
-  dce_export_get_state_json: { args: ["u64"], returns: "ptr" },
-  dce_export_await_result_json: { args: ["u64"], returns: "ptr" },
-  dce_export_release: { args: ["u64"], returns: "i32" },
+  dce_job_set_callback: { args: ["u64", "function", "ptr"], returns: "i32" },
+  dce_job_get_state_json: { args: ["u64"], returns: "ptr" },
+  dce_job_await_result_json: { args: ["u64"], returns: "ptr" },
+  dce_job_release: { args: ["u64"], returns: "i32" },
   dce_free: { args: ["ptr"], returns: "void" },
 });
 
@@ -85,27 +85,27 @@ const callback = new JSCallback(
   },
 );
 
-const callbackCode = dce_export_set_progress_callback(handle, callback.ptr, 0);
+const callbackCode = dce_job_set_callback(handle, callback.ptr, 0);
 if (callbackCode !== 0) {
   callback.close();
   throw new Error(`Failed to register callback: status=${callbackCode}`);
 }
 
-const statePtr = dce_export_get_state_json(handle);
+const statePtr = dce_job_get_state_json(handle);
 try {
   console.log("state:", new CString(statePtr).toString());
 } finally {
   dce_free(statePtr);
 }
 
-const resultPtr = dce_export_await_result_json(handle);
+const resultPtr = dce_job_await_result_json(handle);
 try {
   console.log("result:", new CString(resultPtr).toString());
 } finally {
   dce_free(resultPtr);
 }
 
-const releaseCode = dce_export_release(handle);
+const releaseCode = dce_job_release(handle);
 console.log(`release status: ${releaseCode}`);
 
 await Bun.sleep(250);

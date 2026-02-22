@@ -18,11 +18,20 @@ public enum NativeJobState
     Canceled,
 }
 
+public enum NativeJobKind
+{
+    Export,
+    DiscoveryGuilds,
+    DiscoveryChannels,
+}
+
 public sealed class NativeJobStateResponse
 {
     public bool Ok { get; init; } = true;
 
     public required ulong Handle { get; init; }
+
+    public required string JobKind { get; init; }
 
     public required string State { get; init; }
 
@@ -45,6 +54,8 @@ public sealed class NativeJobEvent
 
     public required ulong Handle { get; init; }
 
+    public required string JobKind { get; init; }
+
     public string? State { get; init; }
 
     public double? Fraction { get; init; }
@@ -54,6 +65,8 @@ public sealed class NativeJobEvent
     public string? ChannelName { get; init; }
 
     public string? Message { get; init; }
+
+    public int? ItemCount { get; init; }
 
     public NativeSuccessResponse? Summary { get; init; }
 

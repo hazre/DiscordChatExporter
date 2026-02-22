@@ -36,16 +36,20 @@ const libPath = join(
 const {
   symbols: {
     dce_export_json,
-    dce_get_guilds_json,
-    dce_get_channels_json,
+    dce_get_guilds_start_json,
+    dce_get_channels_start_json,
+    dce_job_await_result_json,
+    dce_job_release,
     dce_free,
     dce_get_version,
   },
   close,
 } = dlopen(libPath, {
   dce_export_json: { args: ["cstring"], returns: "ptr" },
-  dce_get_guilds_json: { args: ["cstring"], returns: "ptr" },
-  dce_get_channels_json: { args: ["cstring"], returns: "ptr" },
+  dce_get_guilds_start_json: { args: ["cstring", "ptr"], returns: "i32" },
+  dce_get_channels_start_json: { args: ["cstring", "ptr"], returns: "i32" },
+  dce_job_await_result_json: { args: ["u64"], returns: "ptr" },
+  dce_job_release: { args: ["u64"], returns: "i32" },
   dce_free: { args: ["ptr"], returns: "void" },
   dce_get_version: { args: [], returns: "ptr" },
 });
@@ -72,24 +76,29 @@ try {
   dce_free(responsePtr);
 }
 
-const guildsRequestBuffer = Buffer.from(`${JSON.stringify({ token: "invalid" })}\0`, "utf8");
-const guildsPtr = dce_get_guilds_json(guildsRequestBuffer);
-try {
-  const responseJson = new CString(guildsPtr).toString();
-  console.log("guilds:", responseJson);
-} finally {
-  dce_free(guildsPtr);
+function runDiscovery(label: string, requestObj: object, startFn: (requestJson: Buffer, outHandle: BigUint64Array) => number) {
+  const requestJson = Buffer.from(`${JSON.stringify(requestObj)}\0`, "utf8");
+  const handleBuffer = new BigUint64Array(1);
+  const startCode = startFn(requestJson, handleBuffer);
+  const handle = Number(handleBuffer[0]);
+
+  if (startCode !== 0 || !handle) {
+    throw new Error(`Failed to start ${label} discovery job: status=${startCode}, handle=${handle}`);
+  }
+
+  const resultPtr = dce_job_await_result_json(handle);
+  try {
+    const responseJson = new CString(resultPtr).toString();
+    console.log(`${label}:`, responseJson);
+  } finally {
+    dce_free(resultPtr);
+  }
+
+  const releaseCode = dce_job_release(handle);
+  console.log(`${label} release status: ${releaseCode}`);
 }
 
-const channelsRequestBuffer = Buffer.from(
-  `${JSON.stringify({ token: "invalid", directMessages: true })}\0`,
-  "utf8",
-);
-const channelsPtr = dce_get_channels_json(channelsRequestBuffer);
-try {
-  const responseJson = new CString(channelsPtr).toString();
-  console.log("channels:", responseJson);
-} finally {
-  dce_free(channelsPtr);
-  close();
-}
+runDiscovery("guilds", { token: "invalid" }, dce_get_guilds_start_json);
+runDiscovery("channels", { token: "invalid", directMessages: true }, dce_get_channels_start_json);
+
+close();
