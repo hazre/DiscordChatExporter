@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace DiscordChatExporter.Core.Native.Contracts;
 
@@ -22,6 +23,12 @@ public sealed class NativeChannelsRequest
     public bool? IncludeVc { get; init; }
 
     public string? IncludeThreads { get; init; }
+
+    // Option shape is intentionally minimal and additive.
+    // Future ABI revisions may collapse these into a single enum if needed.
+    public bool? IncludeAccessibility { get; init; }
+
+    public bool? AccessibleOnly { get; init; }
 }
 
 public sealed record NativeDiscoveryRequest(string Token, bool RespectRateLimits);
@@ -32,7 +39,9 @@ public sealed record NativeChannelDiscoveryRequest(
     DiscordChatExporter.Core.Discord.Snowflake? GuildId,
     bool DirectMessages,
     bool IncludeVoiceChannels,
-    NativeThreadInclusionMode ThreadInclusionMode
+    NativeThreadInclusionMode ThreadInclusionMode,
+    bool IncludeAccessibilityMetadata,
+    bool AccessibleOnly
 );
 
 public sealed record NativeGuildInfo(string Id, string Name, bool IsDirect);
@@ -46,7 +55,8 @@ public sealed record NativeChannelInfo(
     bool IsDirect,
     bool IsVoice,
     bool IsThread,
-    bool IsArchived
+    bool IsArchived,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? IsAccessible
 );
 
 public sealed class NativeGuildsResponse

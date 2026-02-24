@@ -31,6 +31,8 @@ public class DiscoveryRequestParserSpecs
         request.DirectMessages.Should().BeTrue();
         request.GuildId.Should().BeNull();
         request.ThreadInclusionMode.Should().Be(NativeThreadInclusionMode.None);
+        request.IncludeAccessibilityMetadata.Should().BeFalse();
+        request.AccessibleOnly.Should().BeFalse();
     }
 
     [Fact]
@@ -46,6 +48,21 @@ public class DiscoveryRequestParserSpecs
         request.GuildId.Should().NotBeNull();
         request.IncludeVoiceChannels.Should().BeFalse();
         request.ThreadInclusionMode.Should().Be(NativeThreadInclusionMode.Active);
+        request.IncludeAccessibilityMetadata.Should().BeFalse();
+        request.AccessibleOnly.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Should_parse_channel_accessibility_options()
+    {
+        const string json = """
+            {"token":"abc","guildId":"123","includeAccessibility":true,"accessibleOnly":true}
+            """;
+
+        var request = NativeDiscoveryRequestParser.ParseChannels(json);
+
+        request.IncludeAccessibilityMetadata.Should().BeTrue();
+        request.AccessibleOnly.Should().BeTrue();
     }
 
     [Theory]

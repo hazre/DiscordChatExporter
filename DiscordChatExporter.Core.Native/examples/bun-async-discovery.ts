@@ -70,9 +70,25 @@ const callback = new JSCallback(
   },
 );
 
+type GuildDiscoveryRequest = {
+  token: string;
+  respectRateLimits?: boolean;
+};
+
+type ChannelDiscoveryRequest = {
+  token: string;
+  respectRateLimits?: boolean;
+  guildId?: string;
+  directMessages?: true;
+  includeVc?: boolean;
+  includeThreads?: "none" | "active" | "all";
+  includeAccessibility?: boolean;
+  accessibleOnly?: boolean;
+};
+
 function startDiscovery(
   label: string,
-  requestObj: object,
+  requestObj: GuildDiscoveryRequest | ChannelDiscoveryRequest,
   startFn: (requestJson: Buffer, outHandle: BigUint64Array) => number,
 ): number {
   const request = Buffer.from(`${JSON.stringify(requestObj)}\0`, "utf8");

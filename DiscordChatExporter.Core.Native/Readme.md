@@ -88,9 +88,17 @@ Operation-specific fields:
 
 - `token` (`string`, required)
 - `respectRateLimits` (`bool`, default `true`)
+- `includeAccessibility` (`bool`, default `false`) to annotate each channel with `isAccessible`
+- `accessibleOnly` (`bool`, default `false`) to filter out inaccessible channels at native level
 - Either:
   - `guildId` (`string`) with optional `includeVc` (`bool`, default `true`) and `includeThreads` (`"none" | "active" | "all"`, default `"none"`)
   - Or `directMessages` (`true`) to list DM channels.
+
+Compatibility guarantees:
+
+- Existing request payloads remain valid.
+- Default behavior is unchanged: no accessibility probe and no `isAccessible` field in responses.
+- Accessibility probing is opt-in and each channel is probed once per request, with probe results reused for both metadata and filtering.
 
 ## Bun FFI
 

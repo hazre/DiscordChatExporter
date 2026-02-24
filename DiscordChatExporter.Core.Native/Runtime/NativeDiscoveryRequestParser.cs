@@ -52,6 +52,8 @@ public static class NativeDiscoveryRequestParser
 
         var includeVoiceChannels = request.IncludeVc ?? true;
         var includeThreads = ParseThreadInclusionMode(request.IncludeThreads);
+        var includeAccessibilityMetadata = request.IncludeAccessibility ?? false;
+        var accessibleOnly = request.AccessibleOnly ?? false;
 
         if (directMessages && includeThreads != NativeThreadInclusionMode.None)
         {
@@ -66,7 +68,9 @@ public static class NativeDiscoveryRequestParser
             guildId,
             directMessages,
             includeVoiceChannels,
-            includeThreads
+            includeThreads,
+            includeAccessibilityMetadata,
+            accessibleOnly
         );
     }
 

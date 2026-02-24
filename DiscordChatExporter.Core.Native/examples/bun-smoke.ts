@@ -76,7 +76,27 @@ try {
   dce_free(responsePtr);
 }
 
-function runDiscovery(label: string, requestObj: object, startFn: (requestJson: Buffer, outHandle: BigUint64Array) => number) {
+type GuildDiscoveryRequest = {
+  token: string;
+  respectRateLimits?: boolean;
+};
+
+type ChannelDiscoveryRequest = {
+  token: string;
+  respectRateLimits?: boolean;
+  guildId?: string;
+  directMessages?: true;
+  includeVc?: boolean;
+  includeThreads?: "none" | "active" | "all";
+  includeAccessibility?: boolean;
+  accessibleOnly?: boolean;
+};
+
+function runDiscovery(
+  label: string,
+  requestObj: GuildDiscoveryRequest | ChannelDiscoveryRequest,
+  startFn: (requestJson: Buffer, outHandle: BigUint64Array) => number,
+) {
   const requestJson = Buffer.from(`${JSON.stringify(requestObj)}\0`, "utf8");
   const handleBuffer = new BigUint64Array(1);
   const startCode = startFn(requestJson, handleBuffer);

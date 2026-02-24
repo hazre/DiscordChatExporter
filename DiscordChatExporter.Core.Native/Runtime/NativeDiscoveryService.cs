@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DiscordChatExporter.Core.Discord;
 using DiscordChatExporter.Core.Discord.Data;
+using DiscordChatExporter.Core.Exceptions;
 using DiscordChatExporter.Core.Native.Contracts;
 using DiscordChatExporter.Core.Utils.Extensions;
 
@@ -34,9 +35,13 @@ public static class NativeDiscoveryService
     {
         var discord = CreateDiscordClient(request.Token, request.RespectRateLimits);
 
-        return request.DirectMessages
+        var channels = request.DirectMessages
             ? await GetDirectChannelsAsync(discord, cancellationToken)
             : await GetGuildChannelsAsync(discord, request, cancellationToken);
+
+        return request is { IncludeAccessibilityMetadata: false, AccessibleOnly: false }
+            ? channels
+            : await ApplyAccessibilityOptionsAsync(discord, channels, request, cancellationToken);
     }
 
     private static async ValueTask<IReadOnlyList<NativeChannelInfo>> GetGuildChannelsAsync(
@@ -97,6 +102,66 @@ public static class NativeDiscoveryService
         return channels;
     }
 
+    private static async ValueTask<IReadOnlyList<NativeChannelInfo>> ApplyAccessibilityOptionsAsync(
+        DiscordClient discord,
+        IReadOnlyList<NativeChannelInfo> channels,
+        NativeChannelDiscoveryRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        if (channels.Count <= 0)
+            return channels;
+
+        var accessibilityByChannelId = new Dictionary<string, bool>(channels.Count);
+        foreach (var channel in channels)
+        {
+            if (accessibilityByChannelId.ContainsKey(channel.Id))
+                continue;
+
+            var channelId = Snowflake.Parse(channel.Id);
+            var isAccessible = await IsChannelAccessibleAsync(
+                discord,
+                channelId,
+                cancellationToken
+            );
+            accessibilityByChannelId[channel.Id] = isAccessible;
+        }
+
+        return channels
+            .Where(channel => !request.AccessibleOnly || accessibilityByChannelId[channel.Id])
+            .Select(channel =>
+                request.IncludeAccessibilityMetadata
+                    ? channel with
+                    {
+                        IsAccessible = accessibilityByChannelId[channel.Id],
+                    }
+                    : channel
+            )
+            .ToArray();
+    }
+
+    private static async ValueTask<bool> IsChannelAccessibleAsync(
+        DiscordClient discord,
+        Snowflake channelId,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            // Reuses export's read-access signal with one request and no history pagination.
+            await using var enumerator = discord
+                .GetMessagesAsync(channelId, null, channelId, null, cancellationToken)
+                .GetAsyncEnumerator(cancellationToken);
+            _ = await enumerator.MoveNextAsync();
+
+            return true;
+        }
+        catch (DiscordChatExporterException ex) when (!ex.IsFatal)
+        {
+            return false;
+        }
+    }
+
     private static NativeChannelInfo ToChannelInfo(Channel channel) =>
         new(
             channel.Id.ToString(),
@@ -107,7 +172,8 @@ public static class NativeDiscoveryService
             channel.IsDirect,
             channel.IsVoice,
             channel.IsThread,
-            channel.IsArchived
+            channel.IsArchived,
+            null
         );
 
     private static DiscordClient CreateDiscordClient(string token, bool respectRateLimits) =>

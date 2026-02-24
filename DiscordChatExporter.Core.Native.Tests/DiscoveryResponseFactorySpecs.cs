@@ -33,12 +33,35 @@ public class DiscoveryResponseFactorySpecs
                 false,
                 false,
                 false,
-                false
+                false,
+                null
             ),
         ]);
 
         json.Should().Contain("\"ok\":true");
         json.Should().Contain("\"channels\":[");
         json.Should().Contain("\"hierarchicalName\":\"general\"");
+        json.Should().NotContain("\"isAccessible\":");
+    }
+
+    [Fact]
+    public void Should_serialize_channel_accessibility_metadata_when_available()
+    {
+        var json = NativeResponseFactory.FromChannels([
+            new NativeChannelInfo(
+                "10",
+                "1",
+                null,
+                "general",
+                "general",
+                false,
+                false,
+                false,
+                false,
+                true
+            ),
+        ]);
+
+        json.Should().Contain("\"isAccessible\":true");
     }
 }
